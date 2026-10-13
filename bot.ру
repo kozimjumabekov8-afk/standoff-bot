@@ -1,0 +1,214 @@
+import asyncio
+import logging
+from aiogram import Bot, Dispatcher, F
+from aiogram.filters import CommandStart
+from aiogram.types import (
+    Message, 
+    CallbackQuery, 
+    InlineKeyboardMarkup, 
+    InlineKeyboardButton,
+    ReplyKeyboardMarkup,
+    KeyboardButton
+)
+
+# ==================== ТВОИ ДАННЫЕ ====================
+TOKEN = "8971058646:AAH_OjP1PZ0Ax8p_dMa8P_RyCTbcjTdp75E"
+ADMIN_ID = 8070415911
+SUPPORT_USERNAME = "@mofi_gi"
+CARD_NUMBER = "4916990326644488"
+CARD_HOLDER = "Q.SH"
+# ======================================================
+
+bot = Bot(token=TOKEN)
+dp = Dispatcher()
+
+user_data = {}
+
+GOLD_PRICES = {
+    100: 15000,
+    200: 30000,
+    500: 75000,
+    1000: 150000,
+    2000: 300000,
+    5000: 750000
+}
+
+TEXTS = {
+    'ru': {
+        'welcome': "👋 Добро пожаловать в магазин Gold Standoff 2!\nВыберите действие из меню ниже:",
+        'select_gold': "🪙 Выберите количество голды для покупки:",
+        'buy_btn': "🪙 Купить голду",
+        'support_btn': "💬 Техподдержка",
+        'lang_btn': "🌐 Сменить язык / Language",
+        'support_info': f"💬 По всем вопросам и проблемам обращайтесь в техподдержку:\n👉 {SUPPORT_USERNAME}",
+        'payment_info': (
+            "💳 **Реквизиты для оплаты:**\n"
+            "• Номер карты: `{card}`\n"
+            "• Получатель: **{holder}**\n"
+            "• Сумма к оплате: **{price:,} сум** ({gold} Gold)\n\n"
+            "📌 **Инструкция по покупке:**\n"
+            "1. Переведите указанную сумму на карту.\n"
+            "2. Выставите любой скин на рынок Standoff 2 с паттерном за **{gold} Gold**.\n"
+            "3. Отправьте в этот чат **скриншот чека оплаты** и **скриншот выставленного скина**.\n\n"
+            "⏳ После отправки администратор проверит оплату и передаст вам голду!"
+        ),
+        'order_sent': "✅ Ваши данные отправлены администратору! Ожидайте выдачи голды."
+    },
+    'uz': {
+        'welcome': "👋 Standoff 2 Gold do'koniga xush kelibsiz!\nPastdagi menyudan bo'limni tanlang:",
+        'select_gold': "🪙 Sotib olmoqchi bo'lgan gold miqdorini tanlang:",
+        'buy_btn': "🪙 Gold sotib olish",
+        'support_btn': "💬 Qo'llab-quvvatlash",
+        'lang_btn': "🌐 Сменить язык / Language",
+        'support_info': f"💬 Barcha savollar va muammolar bo'yicha murojaat qiling:\n👉 {SUPPORT_USERNAME}",
+        'payment_info': (
+            "💳 **To'lov uchun rekvizitlar:**\n"
+            "• Karta raqami: `{card}`\n"
+            "• Qabul qiluvchi: **{holder}**\n"
+            "• To'lov summasi: **{price:,} so'm** ({gold} Gold)\n\n"
+            "📌 **Xarid qilish yo'riqnomasi:**\n"
+            "1. Ko'rsatilgan summani kartaga o'tkazing.\n"
+            "2. Standoff 2 bozorida har qanday skinni pattern bilan **{gold} Gold** ga qo'ying.\n"
+            "3. Ushbu chatga **to'lov chekining skrinshotini** va **qo'yilgan skin skrinshotini** yuboring.\n\n"
+            "⏳ Yuborganingizdan so'ng administrator to'lovni tekshiradi va goldni o'tkazib beradi!"
+        ),
+        'order_sent': "✅ Ma'lumotlaringiz administratorga yuborildi! Gold berilishini kuting."
+    },
+    'en': {
+        'welcome': "👋 Welcome to Gold Standoff 2 store!\nSelect an action from the menu below:",
+        'select_gold': "🪙 Select the amount of gold to buy:",
+        'buy_btn': "🪙 Buy Gold",
+        'support_btn': "💬 Support",
+        'lang_btn': "🌐 Сменить язык / Language",
+        'support_info': f"💬 For all questions and support contact:\n👉 {SUPPORT_USERNAME}",
+        'payment_info': (
+            "💳 **Payment details:**\n"
+            "• Card number: `{card}`\n"
+            "• Holder: **{holder}**\n"
+            "• Amount to pay: **{price:,} UZS** ({gold} Gold)\n\n"
+            "📌 **Instructions:**\n"
+            "1. Transfer the exact amount to the card.\n"
+            "2. Put any skin with a pattern on the Standoff 2 market for **{gold} Gold**.\n"
+            "3. Send a **screenshot of the receipt** and a **screenshot of the listed skin** to this chat.\n\n"
+            "⏳ After sending, the admin will verify payment and transfer your gold!"
+        ),
+        'order_sent': "✅ Your request has been sent to the admin! Please wait for your gold."
+    }
+}
+
+def get_language_kb():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang_ru")],
+        [InlineKeyboardButton(text="🇺🇿 O'zbekcha", callback_data="lang_uz")],
+        [InlineKeyboardButton(text="🇬🇧 English", callback_data="lang_en")]
+    ])
+
+def get_main_menu(lang):
+    t = TEXTS[lang]
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=t['buy_btn'])],
+            [KeyboardButton(text=t['support_btn']), KeyboardButton(text=t['lang_btn'])]
+        ],
+        resize_keyboard=True
+    )
+
+def get_gold_kb():
+    buttons = []
+    for gold, price in GOLD_PRICES.items():
+        buttons.append([InlineKeyboardButton(
+            text=f"🪙 {gold} Gold — {price:,} сум", 
+            callback_data=f"buy_{gold}"
+        )])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+@dp.message(CommandStart())
+async def cmd_start(message: Message):
+    await message.answer(
+        "Please select your language / Выберите язык / Tilni tanlang:",
+        reply_markup=get_language_kb()
+    )
+
+@dp.callback_query(F.data.startswith("lang_"))
+async def set_language(callback: CallbackQuery):
+    lang = callback.data.split("_")[1]
+    user_data[callback.from_user.id] = {'lang': lang}
+    
+    await callback.answer()
+    await callback.message.delete()
+    await callback.message.answer(
+        TEXTS[lang]['welcome'],
+        reply_markup=get_main_menu(lang)
+    )
+
+@dp.message(F.text == "🌐 Сменить язык / Language")
+async def change_lang(message: Message):
+    await message.answer(
+        "Please select your language / Выберите язык / Tilni tanlang:",
+        reply_markup=get_language_kb()
+    )
+
+@dp.message(F.text.in_(["💬 Техподдержка", "💬 Qo'llab-quvvatlash", "💬 Support"]))
+async def show_support(message: Message):
+    lang = user_data.get(message.from_user.id, {}).get('lang', 'ru')
+    await message.answer(TEXTS[lang]['support_info'])
+
+@dp.message(F.text.in_(["🪙 Купить голду", "🪙 Gold sotib olish", "🪙 Buy Gold"]))
+async def select_gold(message: Message):
+    lang = user_data.get(message.from_user.id, {}).get('lang', 'ru')
+    await message.answer(
+        TEXTS[lang]['select_gold'],
+        reply_markup=get_gold_kb()
+    )
+
+@dp.callback_query(F.data.startswith("buy_"))
+async def process_buy(callback: CallbackQuery):
+    gold = int(callback.data.split("_")[1])
+    price = GOLD_PRICES[gold]
+    user_id = callback.from_user.id
+    
+    if user_id not in user_data:
+        user_data[user_id] = {'lang': 'ru'}
+    
+    user_data[user_id]['selected_gold'] = gold
+    lang = user_data[user_id]['lang']
+    
+    text = TEXTS[lang]['payment_info'].format(
+        card=CARD_NUMBER,
+        holder=CARD_HOLDER,
+        price=price,
+        gold=gold
+    )
+    
+    await callback.answer()
+    await callback.message.answer(text, parse_mode="Markdown")
+
+@dp.message(F.photo | F.document)
+async def forward_order_to_admin(message: Message):
+    user_id = message.from_user.id
+    user_info = user_data.get(user_id, {})
+    gold = user_info.get('selected_gold', 'Не выбрано')
+    lang = user_info.get('lang', 'ru')
+
+    username = f"@{message.from_user.username}" if message.from_user.username else "Нет юзернейма"
+    
+    admin_text = (
+        f"📥 **НОВЫЙ ЗАКАЗ!**\n\n"
+        f"👤 Покупатель: {message.from_user.full_name} ({username})\n"
+        f"🆔 ID: `{user_id}`\n"
+        f"🪙 Выбранный пакет: **{gold} Gold**\n"
+    )
+
+    await bot.send_message(chat_id=ADMIN_ID, text=admin_text, parse_mode="Markdown")
+    await message.forward(chat_id=ADMIN_ID)
+
+    await message.answer(TEXTS[lang]['order_sent'])
+
+async def main():
+    print("Бот успешно запущен!")
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    asyncio.run(main())
+    
